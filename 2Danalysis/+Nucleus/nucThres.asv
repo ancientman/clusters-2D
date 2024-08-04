@@ -1,0 +1,108 @@
+function [fim] = nucThres(im, nucLabel)
+maxIter = 20;
+technique = 1;
+imF= im;
+imF(nucLabel == 0) = 0;
+imF= medfilt2(imF);
+
+thres = cell(1, max(nucLabel, [], 'all'));
+imThresNuc = cell(1, max(nucLabel, [], 'all'));
+imThresLoc = cell(1, max(nucLabel, [], 'all'));
+for i = 1:max(nucLabel, [], 'all') 
+    thres{i} = zeros(maxIter, 1);
+    imThres{i} = zeros([size(im), maxIter]);
+end
+
+if technique == 1
+%___________________________________________________
+%   Calculate  multi-thresholds. technique#1: auto-otsu
+imThresNuc = nucThres(nucLabel, im, maxIter, imThresNuc);        
+imThresLoc = locThres(nucLabel, imThresNuc);        
+%___________________________________________________
+elseif technique == 2
+%___________________________________________________
+%   Calculate  multi-thresholds. technique#2: iterative local std
+    filtWinSize = 15;
+    for i= 1:size(max(nucLabel, [], 'all'))
+        imTemp = im;
+        imTemp(nucLabel~=i) = 0;
+        imTemp = rescale(imTemp);       
+        figure('Color', 'w');
+        for p= 1:4  
+            imAvTemp = conv2(imTemp, ones(filtWinSize)/filtWinSize^2, 'same');
+            imStdTemp = stdfilt(imTemp, ones(filtWinSize));
+            thres = imAvTemp + imStdTemp;
+            imTemp = imTemp - thres;
+            imTemp(imTemp<0) = 0;
+            imTemp = rescale(imTemp);
+            if p==1
+                spotBin = imbinarize(imTemp);
+                bgMean = mean2(im(nucLabel==i & spotBin==0));
+            end
+            %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            [row, col] = find(nucLabel==i);
+            nucCrop = imcrop(imTemp, [min(col), min(row), ...
+                (max(col) - min(col)), (max(row) - min(row))]);
+            %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            subplot(2, 2, p)
+            imshow(nucCrop,[]);
+%             histogram(imTemp,0.05:0.05:1);
+        end
+        
+        
+        imAvTempSq =  conv2(imTemp.^2, ones(3)/3^2, 'same');
+        imVar = imAvTempSq - imAvTemp.^2;
+        imVar(imVar<0) = 0;
+        imVar = rescale(imVar);
+        
+        
+        imDiff = imVar - imStdTemp.^2;
+        imDiff(imDiff<0) = 0;
+        imDiff = rescale(imDiff);
+        
+        if maxIter>1 && maxIter<=21
+            maxMultiLevel = maxIter;
+            thres{i}(2:maxIter) = ...
+            multithresh(imTemp, maxMultiLevel-1);
+        elseif maxIter>21
+            maxMultiLevel = 21;
+            thresTemp(2:maxMultiLevel) = ...
+                multithresh(imTemp, maxMultiLevel-1);
+            thres{i}(2:maxIter) = interp1(linspace(1, 2, maxMultiLevel-1), ...
+                thresTemp(2:maxMultiLevel), linspace(1, 2, maxIter-1));
+        end
+        for j=1:maxIter
+            imTemp = imTemp - thres{i}(j);
+            imTemp(imTemp<0) = 0;
+            imThres{i}(:,:,j) = imTemp;
+        end    
+    end
+end
+%___________________________________________________
+end
+
+%___________________________________________________
+function imThres = nucThres(nucLabel, im, maxIter, imThres)
+for i= 1:size(max(nucLabel, [], 'all'))
+    imTemp = im;
+    imTemp(nucLabel~=i) = 0;
+    imTemp = rescale(imTemp);
+    if maxIter>1 && maxIter<=21
+        maxMultiLevel = maxIter;
+        thres{i}(2:maxIter) = ...
+        multithresh(imTemp, maxMultiLevel-1);
+    elseif maxIter>21
+        maxMultiLevel = 21;
+        thresTemp(2:maxMultiLevel) = ...
+            multithresh(imTemp, maxMultiLevel-1);
+        thres{i}(2:maxIter) = interp1(linspace(1, 2, maxMultiLevel-1), ...
+            thresTemp(2:maxMultiLevel), linspace(1, 2, maxIter-1));
+    end
+    for j=1:maxIter
+        imTemp = imTemp - thres{i}(j);
+        imTemp(imTemp<0) = 0;
+        imTemp = rescale(imTemp);
+        imThres{i}(:,:,j) = imTemp;
+    end    
+end
+end
