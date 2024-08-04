@@ -1,0 +1,1 @@
+This pipeline takes as input timeseries 2D TIFF images of nuclear cross sections of _Drosophila_ nuclei with fluorophore tagged protein clusters. Various paramteres are extracted from TIFF image metadata, and other analysis revelant parameters can be added in the expInfo.txt file.
